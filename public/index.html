@@ -50,16 +50,13 @@
             border-color: #4285f4;
         }
 
-        .btn {
+        #search-btn {
             padding: 12px 24px;
             font-size: 16px;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.2s;
-        }
-
-        #search-btn {
             background-color: #4285f4;
             color: white;
         }
@@ -68,17 +65,6 @@
             background-color: #3367d6;
         }
 
-        #save-btn {
-            background-color: #34a853;
-            color: white;
-            display: none;
-        }
-
-        #save-btn:hover {
-            background-color: #2d9249;
-        }
-
-        #save-btn:disabled,
         #search-btn:disabled {
             background-color: #ccc;
             cursor: not-allowed;
@@ -150,13 +136,10 @@
             display: none;
         }
 
-        .success-text {
-            margin-top: 15px;
-            padding: 12px;
-            background-color: #e6f4ea;
-            border-radius: 8px;
-            color: #1e8e3e;
+        .results-info {
+            margin-top: 10px;
             font-size: 14px;
+            color: #666;
             display: none;
         }
 
@@ -172,10 +155,6 @@
         .embed-mode h1 {
             display: none;
         }
-
-        .embed-mode #save-btn {
-            display: none !important;
-        }
     </style>
 </head>
 <body>
@@ -189,11 +168,12 @@
                 placeholder="Enter an address (e.g., 123 Main St, City, State)"
                 autocomplete="off"
             >
-            <button id="search-btn" class="btn">Search</button>
-            <button id="save-btn" class="btn">Save to Database</button>
+            <button id="search-btn">Search</button>
         </div>
 
         <div id="map"></div>
+
+        <p class="results-info" id="results-info"></p>
 
         <div class="legend">
             <div class="legend-title">Legend</div>
@@ -203,17 +183,16 @@
             </div>
             <div class="legend-item">
                 <div class="legend-circle saved"></div>
-                <span>Saved locations from database</span>
+                <span>Nearby locations (within 1/4 mile)</span>
             </div>
         </div>
 
         <p class="info-text">
-            This map shows an approximate 1/8 mile (200 meter) radius around the general area.
-            The exact address is not displayed for privacy.
+            This map shows an approximate 1/8 mile (200 meter) radius around locations.
+            The exact addresses are not displayed for privacy.
         </p>
 
         <p class="error-text" id="error-message"></p>
-        <p class="success-text" id="success-message"></p>
     </div>
 
     <script>
@@ -243,7 +222,6 @@
         let searchedCircle;
         let savedCircles = [];
         let geocoder;
-        let currentSearchResult = null;
 
         // Initialize the map
         function initMap() {
@@ -273,7 +251,6 @@
                     searchAddress();
                 }
             });
-            document.getElementById('save-btn').addEventListener('click', saveCurrentAddress);
 
             // Check for URL parameters
             const urlParams = new URLSearchParams(window.location.search);
@@ -286,9 +263,6 @@
             if (urlParams.get('embed') === 'true') {
                 document.body.classList.add('embed-mode');
             }
-
-            // Load saved addresses from database
-            loadSavedAddresses();
         }
 
         // Add privacy offset to coordinates
@@ -302,10 +276,10 @@
             };
         }
 
-        // Load saved addresses from database
-        async function loadSavedAddresses() {
+        // Load nearby addresses from database
+        async function loadNearbyAddresses(lat, lng) {
             try {
-                const response = await fetch(`${CONFIG.API_BASE_URL}/api/addresses`);
+                const response = await fetch(`${CONFIG.API_BASE_URL}/api/addresses?lat=${lat}&lng=${lng}`);
                 if (!response.ok) throw new Error('Failed to fetch addresses');
 
                 const addresses = await response.json();
@@ -314,7 +288,7 @@
                 savedCircles.forEach(circle => circle.setMap(null));
                 savedCircles = [];
 
-                // Create circles for each saved address
+                // Create circles for each nearby address
                 addresses.forEach(addr => {
                     const privacyCenter = addPrivacyOffset(addr.lat, addr.lng);
 
@@ -332,14 +306,21 @@
                     savedCircles.push(circle);
                 });
 
-                // If we have saved addresses and no search, fit to show all
-                if (addresses.length > 0 && !searchedCircle) {
-                    fitMapToAllCircles();
+                // Update results info
+                const resultsInfo = document.getElementById('results-info');
+                if (addresses.length > 0) {
+                    resultsInfo.textContent = `Found ${addresses.length} location${addresses.length > 1 ? 's' : ''} within 1/4 mile of your search.`;
+                    resultsInfo.style.display = 'block';
+                } else {
+                    resultsInfo.textContent = 'No other locations found within 1/4 mile of your search.';
+                    resultsInfo.style.display = 'block';
                 }
 
+                return addresses.length;
+
             } catch (error) {
-                console.error('Error loading saved addresses:', error);
-                // Silently fail - database might not be available in static hosting
+                console.error('Error loading nearby addresses:', error);
+                return 0;
             }
         }
 
@@ -364,9 +345,8 @@
         function searchAddress() {
             const address = document.getElementById('address-input').value.trim();
             const errorElement = document.getElementById('error-message');
-            const successElement = document.getElementById('success-message');
             const searchBtn = document.getElementById('search-btn');
-            const saveBtn = document.getElementById('save-btn');
+            const resultsInfo = document.getElementById('results-info');
 
             if (!address) {
                 showError('Please enter an address');
@@ -376,31 +356,25 @@
             searchBtn.disabled = true;
             searchBtn.textContent = 'Searching...';
             errorElement.style.display = 'none';
-            successElement.style.display = 'none';
-            saveBtn.style.display = 'none';
+            resultsInfo.style.display = 'none';
 
-            geocoder.geocode({ address: address }, (results, status) => {
+            geocoder.geocode({ address: address }, async (results, status) => {
                 searchBtn.disabled = false;
                 searchBtn.textContent = 'Search';
 
                 if (status === 'OK' && results[0]) {
                     const location = results[0].geometry.location;
+                    const lat = location.lat();
+                    const lng = location.lng();
 
-                    // Store current search result for saving
-                    currentSearchResult = {
-                        address: results[0].formatted_address,
-                        lat: location.lat(),
-                        lng: location.lng()
-                    };
-
-                    const privacyCenter = addPrivacyOffset(location.lat(), location.lng());
+                    const privacyCenter = addPrivacyOffset(lat, lng);
 
                     // Remove existing searched circle
                     if (searchedCircle) {
                         searchedCircle.setMap(null);
                     }
 
-                    // Create new searched circle (different color)
+                    // Create new searched circle (blue)
                     searchedCircle = new google.maps.Circle({
                         strokeColor: CONFIG.SEARCHED_STROKE_COLOR,
                         strokeOpacity: CONFIG.SEARCHED_STROKE_OPACITY,
@@ -412,85 +386,30 @@
                         radius: CONFIG.RADIUS_METERS
                     });
 
+                    // Load nearby addresses from database (within 1/4 mile)
+                    await loadNearbyAddresses(lat, lng);
+
                     // Fit map to show all circles
                     fitMapToAllCircles();
 
-                    // Show save button
-                    saveBtn.style.display = 'inline-block';
-
                 } else {
                     showError('Could not find that address. Please try a different address.');
-                    currentSearchResult = null;
                 }
             });
-        }
-
-        // Save current address to database
-        async function saveCurrentAddress() {
-            if (!currentSearchResult) {
-                showError('No address to save. Please search for an address first.');
-                return;
-            }
-
-            const saveBtn = document.getElementById('save-btn');
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
-
-            try {
-                const response = await fetch(`${CONFIG.API_BASE_URL}/api/addresses`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(currentSearchResult)
-                });
-
-                if (!response.ok) throw new Error('Failed to save address');
-
-                showSuccess('Address saved successfully!');
-                saveBtn.style.display = 'none';
-                currentSearchResult = null;
-
-                // Reload saved addresses to show the new one
-                await loadSavedAddresses();
-
-            } catch (error) {
-                console.error('Error saving address:', error);
-                showError('Failed to save address. Make sure the server is running.');
-            } finally {
-                saveBtn.disabled = false;
-                saveBtn.textContent = 'Save to Database';
-            }
         }
 
         // Show error message
         function showError(message) {
             const errorElement = document.getElementById('error-message');
-            const successElement = document.getElementById('success-message');
-            successElement.style.display = 'none';
             errorElement.textContent = message;
             errorElement.style.display = 'block';
-        }
-
-        // Show success message
-        function showSuccess(message) {
-            const errorElement = document.getElementById('error-message');
-            const successElement = document.getElementById('success-message');
-            errorElement.style.display = 'none';
-            successElement.textContent = message;
-            successElement.style.display = 'block';
-
-            // Auto-hide after 3 seconds
-            setTimeout(() => {
-                successElement.style.display = 'none';
-            }, 3000);
         }
 
         window.initMap = initMap;
     </script>
 
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
     </script>
 </body>
 </html>

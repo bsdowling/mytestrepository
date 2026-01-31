@@ -1,110 +1,150 @@
 # Location Radius Map
 
-A privacy-focused Google Maps component that displays a 1/4 mile radius around a location without revealing the exact address.
+A privacy-focused Google Maps component with a backend database. Users can search for an address and see nearby saved locations (within 1/4 mile) displayed as colored circles.
 
 ## Features
 
-- Enter any address to display an approximate area
-- Shows a 1/4 mile (400 meter) radius circle
-- Privacy protection: The center point is slightly randomized so the exact address is not revealed
-- No marker placed at the exact location
+- Search any address to display an approximate 1/8 mile radius
+- Shows saved database locations within 1/4 mile of the searched address
+- Different colors: Blue for searched location, Yellow/Orange for database locations
+- Privacy protection: Coordinates are slightly randomized
+- No markers placed at exact locations
 - Embeddable on any website
 - Mobile responsive
 
+## Project Structure
+
+```
+├── server.js          # Node.js/Express backend
+├── package.json       # Dependencies
+├── addresses.db       # SQLite database (created on first run)
+└── public/
+    └── index.html     # Frontend map interface
+```
+
 ## Setup
 
-### 1. Get a Google Maps API Key
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Get a Google Maps API Key
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable the following APIs:
-   - **Maps JavaScript API**
-   - **Geocoding API**
+3. Enable: **Maps JavaScript API** and **Geocoding API**
 4. Go to "Credentials" and create an API key
-5. (Recommended) Restrict your API key to your domain for security
 
-### 2. Add Your API Key
+### 3. Add Your API Key
 
-Open `index.html` and replace `YOUR_API_KEY` with your actual API key:
+Edit `public/index.html` and replace `YOUR_API_KEY` with your actual API key (line 412).
 
-```html
-<script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=YOUR_ACTUAL_API_KEY&callback=initMap">
-</script>
+### 4. Run the Server
+
+```bash
+npm start
 ```
 
-### 3. Deploy
+Server runs at `http://localhost:3000`
 
-Upload `index.html` to your web server or hosting service.
+## Adding Addresses to the Database (Admin)
 
-## Usage
+Addresses are added via the API. Users cannot add addresses - only admins can.
 
-### Standalone Page
+### Using curl
 
-Simply open the page in a browser, enter an address, and click "Search".
+```bash
+# Add a single address
+curl -X POST http://localhost:3000/api/addresses \
+  -H "Content-Type: application/json" \
+  -d '{"address": "123 Main St, City, State", "lat": 40.7128, "lng": -74.0060, "label": "Location A"}'
+```
 
-### Embedding on Your Website
+### Using a REST client (Postman, Insomnia, etc.)
 
-Use an iframe to embed the map:
+**POST** `http://localhost:3000/api/addresses`
+
+```json
+{
+  "address": "123 Main St, City, State",
+  "lat": 40.7128,
+  "lng": -74.0060,
+  "label": "Optional label"
+}
+```
+
+### Getting coordinates for an address
+
+You can use Google's Geocoding API or search the address on Google Maps and extract coordinates from the URL.
+
+### View all addresses
+
+```bash
+curl http://localhost:3000/api/addresses
+```
+
+### Delete an address
+
+```bash
+curl -X DELETE http://localhost:3000/api/addresses/1
+```
+
+(Replace `1` with the address ID)
+
+## How It Works
+
+1. User enters an address and clicks Search
+2. The frontend geocodes the address to get coordinates
+3. The blue circle appears showing the searched location (1/8 mile radius)
+4. The frontend queries the API for database addresses within 1/4 mile
+5. Yellow/orange circles appear for any nearby saved locations
+
+## Embedding
 
 ```html
 <iframe
-    src="https://yourdomain.com/index.html?embed=true"
+    src="https://yourserver.com/?embed=true"
     width="100%"
     height="600"
-    style="border: none; border-radius: 12px;"
-></iframe>
+    style="border: none;">
+</iframe>
 ```
 
-### Pre-populated Address
+With pre-populated address:
 
-You can pre-load an address using URL parameters:
-
-```
-https://yourdomain.com/index.html?address=Times%20Square%2C%20New%20York
-```
-
-Combined with embed mode:
-
-```
-https://yourdomain.com/index.html?embed=true&address=Times%20Square%2C%20New%20York
+```html
+<iframe
+    src="https://yourserver.com/?embed=true&address=Times%20Square%2C%20New%20York"
+    width="100%"
+    height="600"
+    style="border: none;">
+</iframe>
 ```
 
 ## Configuration
 
-You can customize the behavior by editing the `CONFIG` object in `index.html`:
+Edit `CONFIG` in `public/index.html`:
 
 ```javascript
 const CONFIG = {
-    RADIUS_METERS: 402.336,        // 1/4 mile in meters (change for different radius)
-    DEFAULT_ZOOM: 15,              // Map zoom level
-    CIRCLE_FILL_COLOR: '#4285f4', // Circle fill color
-    CIRCLE_FILL_OPACITY: 0.2,     // Circle transparency
-    CIRCLE_STROKE_COLOR: '#4285f4',
-    CIRCLE_STROKE_OPACITY: 0.8,
-    CIRCLE_STROKE_WEIGHT: 2,
-    PRIVACY_OFFSET_METERS: 50     // Random offset for privacy (increase for more privacy)
+    RADIUS_METERS: 201.168,        // 1/8 mile display radius
+    PRIVACY_OFFSET_METERS: 50,     // Random offset for privacy
+    API_BASE_URL: window.location.origin  // Change for production
 };
 ```
 
-### Common Radius Values
+Edit `server.js` for the nearby search radius:
 
-| Distance | Meters |
-|----------|--------|
-| 1/4 mile | 402.336 |
-| 1/2 mile | 804.672 |
-| 1 mile   | 1609.34 |
-| 1 km     | 1000 |
-| 5 km     | 5000 |
+```javascript
+const QUARTER_MILE_METERS = 402.336;  // Distance to search for nearby addresses
+```
 
-## Privacy Features
+## Deployment
 
-This map is designed to show an approximate area without revealing the exact location:
-
-1. **No markers**: Unlike typical maps, no pin is placed at the exact address
-2. **Random offset**: The center of the circle is randomly shifted by up to 50 meters
-3. **Area display**: Only shows the general neighborhood, not the specific property
+For production, you'll need a Node.js hosting environment (Railway, Render, Fly.io, DigitalOcean, etc.) since this requires a backend server.
 
 ## License
 
-MIT License - Feel free to use and modify for your projects.
+MIT License

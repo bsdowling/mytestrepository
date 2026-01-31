@@ -26,13 +26,44 @@ db.exec(`
     )
 `);
 
+// Haversine formula to calculate distance between two points in meters
+function getDistanceInMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+const QUARTER_MILE_METERS = 402.336;
+
 // API Routes
 
-// GET all addresses
+// GET addresses near a location (within 1/4 mile)
 app.get('/api/addresses', (req, res) => {
+    const { lat, lng } = req.query;
+
     try {
-        const addresses = db.prepare('SELECT * FROM addresses ORDER BY created_at DESC').all();
-        res.json(addresses);
+        const allAddresses = db.prepare('SELECT * FROM addresses ORDER BY created_at DESC').all();
+
+        // If lat/lng provided, filter to only nearby addresses
+        if (lat && lng) {
+            const targetLat = parseFloat(lat);
+            const targetLng = parseFloat(lng);
+
+            const nearbyAddresses = allAddresses.filter(addr => {
+                const distance = getDistanceInMeters(targetLat, targetLng, addr.lat, addr.lng);
+                return distance <= QUARTER_MILE_METERS;
+            });
+
+            return res.json(nearbyAddresses);
+        }
+
+        // If no lat/lng, return all (for admin purposes)
+        res.json(allAddresses);
     } catch (error) {
         console.error('Error fetching addresses:', error);
         res.status(500).json({ error: 'Failed to fetch addresses' });
