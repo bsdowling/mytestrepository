@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Radius Map</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        #address-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        #address-input:focus {
+            border-color: #4285f4;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        #search-btn {
+            background-color: #4285f4;
+            color: white;
+        }
+
+        #search-btn:hover {
+            background-color: #3367d6;
+        }
+
+        #save-btn {
+            background-color: #34a853;
+            color: white;
+            display: none;
+        }
+
+        #save-btn:hover {
+            background-color: #2d9249;
+        }
+
+        #save-btn:disabled,
+        #search-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #map {
+            width: 100%;
+            height: 500px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-text {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #e8f4fd;
+            border-radius: 8px;
+            color: #1a73e8;
+            font-size: 14px;
+        }
+
+        .legend {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .legend-circle {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid;
+        }
+
+        .legend-circle.searched {
+            background-color: rgba(66, 133, 244, 0.3);
+            border-color: #4285f4;
+        }
+
+        .legend-circle.saved {
+            background-color: rgba(251, 188, 4, 0.3);
+            border-color: #f9ab00;
+        }
+
+        .error-text {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #fce8e6;
+            border-radius: 8px;
+            color: #d93025;
+            font-size: 14px;
+            display: none;
+        }
+
+        .success-text {
+            margin-top: 15px;
+            padding: 12px;
+            background-color: #e6f4ea;
+            border-radius: 8px;
+            color: #1e8e3e;
+            font-size: 14px;
+            display: none;
+        }
+
+        /* Embed-friendly styles */
+        .embed-mode {
+            padding: 0;
+        }
+
+        .embed-mode .container {
+            max-width: 100%;
+        }
+
+        .embed-mode h1 {
+            display: none;
+        }
+
+        .embed-mode #save-btn {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Location Radius Search</h1>
+
+        <div class="search-container">
+            <input
+                type="text"
+                id="address-input"
+                placeholder="Enter an address (e.g., 123 Main St, City, State)"
+                autocomplete="off"
+            >
+            <button id="search-btn" class="btn">Search</button>
+            <button id="save-btn" class="btn">Save to Database</button>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="legend">
+            <div class="legend-title">Legend</div>
+            <div class="legend-item">
+                <div class="legend-circle searched"></div>
+                <span>Your searched location</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-circle saved"></div>
+                <span>Saved locations from database</span>
+            </div>
+        </div>
+
+        <p class="info-text">
+            This map shows an approximate 1/8 mile (200 meter) radius around the general area.
+            The exact address is not displayed for privacy.
+        </p>
+
+        <p class="error-text" id="error-message"></p>
+        <p class="success-text" id="success-message"></p>
+    </div>
+
+    <script>
+        // Configuration
+        const CONFIG = {
+            RADIUS_METERS: 201.168, // 1/8 mile in meters
+            DEFAULT_ZOOM: 15,
+            // Colors for searched address
+            SEARCHED_FILL_COLOR: '#4285f4',
+            SEARCHED_FILL_OPACITY: 0.25,
+            SEARCHED_STROKE_COLOR: '#4285f4',
+            SEARCHED_STROKE_OPACITY: 0.9,
+            SEARCHED_STROKE_WEIGHT: 3,
+            // Colors for saved addresses from database
+            SAVED_FILL_COLOR: '#f9ab00',
+            SAVED_FILL_OPACITY: 0.2,
+            SAVED_STROKE_COLOR: '#f9ab00',
+            SAVED_STROKE_OPACITY: 0.8,
+            SAVED_STROKE_WEIGHT: 2,
+            // Privacy offset
+            PRIVACY_OFFSET_METERS: 50,
+            // API base URL (change this to your server URL in production)
+            API_BASE_URL: window.location.origin
+        };
+
+        let map;
+        let searchedCircle;
+        let savedCircles = [];
+        let geocoder;
+        let currentSearchResult = null;
+
+        // Initialize the map
+        function initMap() {
+            const defaultCenter = { lat: 39.8283, lng: -98.5795 };
+
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 4,
+                center: defaultCenter,
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: true,
+                styles: [
+                    {
+                        featureType: 'poi',
+                        elementType: 'labels',
+                        stylers: [{ visibility: 'off' }]
+                    }
+                ]
+            });
+
+            geocoder = new google.maps.Geocoder();
+
+            // Set up event listeners
+            document.getElementById('search-btn').addEventListener('click', searchAddress);
+            document.getElementById('address-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchAddress();
+                }
+            });
+            document.getElementById('save-btn').addEventListener('click', saveCurrentAddress);
+
+            // Check for URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const presetAddress = urlParams.get('address');
+            if (presetAddress) {
+                document.getElementById('address-input').value = presetAddress;
+                searchAddress();
+            }
+
+            if (urlParams.get('embed') === 'true') {
+                document.body.classList.add('embed-mode');
+            }
+
+            // Load saved addresses from database
+            loadSavedAddresses();
+        }
+
+        // Add privacy offset to coordinates
+        function addPrivacyOffset(lat, lng) {
+            const offsetLat = (Math.random() - 0.5) * 2 * (CONFIG.PRIVACY_OFFSET_METERS / 111320);
+            const offsetLng = (Math.random() - 0.5) * 2 * (CONFIG.PRIVACY_OFFSET_METERS / (111320 * Math.cos(lat * Math.PI / 180)));
+
+            return {
+                lat: lat + offsetLat,
+                lng: lng + offsetLng
+            };
+        }
+
+        // Load saved addresses from database
+        async function loadSavedAddresses() {
+            try {
+                const response = await fetch(`${CONFIG.API_BASE_URL}/api/addresses`);
+                if (!response.ok) throw new Error('Failed to fetch addresses');
+
+                const addresses = await response.json();
+
+                // Clear existing saved circles
+                savedCircles.forEach(circle => circle.setMap(null));
+                savedCircles = [];
+
+                // Create circles for each saved address
+                addresses.forEach(addr => {
+                    const privacyCenter = addPrivacyOffset(addr.lat, addr.lng);
+
+                    const circle = new google.maps.Circle({
+                        strokeColor: CONFIG.SAVED_STROKE_COLOR,
+                        strokeOpacity: CONFIG.SAVED_STROKE_OPACITY,
+                        strokeWeight: CONFIG.SAVED_STROKE_WEIGHT,
+                        fillColor: CONFIG.SAVED_FILL_COLOR,
+                        fillOpacity: CONFIG.SAVED_FILL_OPACITY,
+                        map: map,
+                        center: privacyCenter,
+                        radius: CONFIG.RADIUS_METERS
+                    });
+
+                    savedCircles.push(circle);
+                });
+
+                // If we have saved addresses and no search, fit to show all
+                if (addresses.length > 0 && !searchedCircle) {
+                    fitMapToAllCircles();
+                }
+
+            } catch (error) {
+                console.error('Error loading saved addresses:', error);
+                // Silently fail - database might not be available in static hosting
+            }
+        }
+
+        // Fit map to show all circles
+        function fitMapToAllCircles() {
+            const bounds = new google.maps.LatLngBounds();
+
+            if (searchedCircle) {
+                bounds.union(searchedCircle.getBounds());
+            }
+
+            savedCircles.forEach(circle => {
+                bounds.union(circle.getBounds());
+            });
+
+            if (!bounds.isEmpty()) {
+                map.fitBounds(bounds);
+            }
+        }
+
+        // Search for address and display radius
+        function searchAddress() {
+            const address = document.getElementById('address-input').value.trim();
+            const errorElement = document.getElementById('error-message');
+            const successElement = document.getElementById('success-message');
+            const searchBtn = document.getElementById('search-btn');
+            const saveBtn = document.getElementById('save-btn');
+
+            if (!address) {
+                showError('Please enter an address');
+                return;
+            }
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching...';
+            errorElement.style.display = 'none';
+            successElement.style.display = 'none';
+            saveBtn.style.display = 'none';
+
+            geocoder.geocode({ address: address }, (results, status) => {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search';
+
+                if (status === 'OK' && results[0]) {
+                    const location = results[0].geometry.location;
+
+                    // Store current search result for saving
+                    currentSearchResult = {
+                        address: results[0].formatted_address,
+                        lat: location.lat(),
+                        lng: location.lng()
+                    };
+
+                    const privacyCenter = addPrivacyOffset(location.lat(), location.lng());
+
+                    // Remove existing searched circle
+                    if (searchedCircle) {
+                        searchedCircle.setMap(null);
+                    }
+
+                    // Create new searched circle (different color)
+                    searchedCircle = new google.maps.Circle({
+                        strokeColor: CONFIG.SEARCHED_STROKE_COLOR,
+                        strokeOpacity: CONFIG.SEARCHED_STROKE_OPACITY,
+                        strokeWeight: CONFIG.SEARCHED_STROKE_WEIGHT,
+                        fillColor: CONFIG.SEARCHED_FILL_COLOR,
+                        fillOpacity: CONFIG.SEARCHED_FILL_OPACITY,
+                        map: map,
+                        center: privacyCenter,
+                        radius: CONFIG.RADIUS_METERS
+                    });
+
+                    // Fit map to show all circles
+                    fitMapToAllCircles();
+
+                    // Show save button
+                    saveBtn.style.display = 'inline-block';
+
+                } else {
+                    showError('Could not find that address. Please try a different address.');
+                    currentSearchResult = null;
+                }
+            });
+        }
+
+        // Save current address to database
+        async function saveCurrentAddress() {
+            if (!currentSearchResult) {
+                showError('No address to save. Please search for an address first.');
+                return;
+            }
+
+            const saveBtn = document.getElementById('save-btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            try {
+                const response = await fetch(`${CONFIG.API_BASE_URL}/api/addresses`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentSearchResult)
+                });
+
+                if (!response.ok) throw new Error('Failed to save address');
+
+                showSuccess('Address saved successfully!');
+                saveBtn.style.display = 'none';
+                currentSearchResult = null;
+
+                // Reload saved addresses to show the new one
+                await loadSavedAddresses();
+
+            } catch (error) {
+                console.error('Error saving address:', error);
+                showError('Failed to save address. Make sure the server is running.');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save to Database';
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            const successElement = document.getElementById('success-message');
+            successElement.style.display = 'none';
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const errorElement = document.getElementById('error-message');
+            const successElement = document.getElementById('success-message');
+            errorElement.style.display = 'none';
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 3000);
+        }
+
+        window.initMap = initMap;
+    </script>
+
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70&callback=initMap">
+    </script>
+</body>
+</html>
