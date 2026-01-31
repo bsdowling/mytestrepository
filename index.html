@@ -196,32 +196,48 @@
     </div>
 
     <script>
-        // Configuration
+        // ===========================================
+        // CONFIGURATION - UPDATE THESE VALUES
+        // ===========================================
         const CONFIG = {
+            // Google Sheets Configuration
+            // Your Google Sheet ID (from the URL: https://docs.google.com/spreadsheets/d/SHEET_ID/edit)
+            GOOGLE_SHEET_ID: 'YOUR_GOOGLE_SHEET_ID',
+
+            // Google API Key (get from Google Cloud Console)
+            GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY',
+
+            // Sheet name (tab name at bottom of spreadsheet)
+            SHEET_NAME: 'Sheet1',
+
+            // Map Configuration
             RADIUS_METERS: 201.168, // 1/8 mile in meters
+            QUARTER_MILE_METERS: 402.336, // for nearby search
             DEFAULT_ZOOM: 15,
+
             // Colors for searched address
             SEARCHED_FILL_COLOR: '#4285f4',
             SEARCHED_FILL_OPACITY: 0.25,
             SEARCHED_STROKE_COLOR: '#4285f4',
             SEARCHED_STROKE_OPACITY: 0.9,
             SEARCHED_STROKE_WEIGHT: 3,
+
             // Colors for saved addresses from database
             SAVED_FILL_COLOR: '#f9ab00',
             SAVED_FILL_OPACITY: 0.2,
             SAVED_STROKE_COLOR: '#f9ab00',
             SAVED_STROKE_OPACITY: 0.8,
             SAVED_STROKE_WEIGHT: 2,
+
             // Privacy offset
-            PRIVACY_OFFSET_METERS: 50,
-            // API base URL (change this to your server URL in production)
-            API_BASE_URL: window.location.origin
+            PRIVACY_OFFSET_METERS: 50
         };
 
         let map;
         let searchedCircle;
         let savedCircles = [];
         let geocoder;
+        let allAddresses = []; // Cache of addresses from Google Sheets
 
         // Initialize the map
         function initMap() {
@@ -263,6 +279,21 @@
             if (urlParams.get('embed') === 'true') {
                 document.body.classList.add('embed-mode');
             }
+
+            // Load addresses from Google Sheets on startup
+            loadAddressesFromSheet();
+        }
+
+        // Haversine formula to calculate distance between two points in meters
+        function getDistanceInMeters(lat1, lng1, lat2, lng2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
         }
 
         // Add privacy offset to coordinates
@@ -276,52 +307,99 @@
             };
         }
 
-        // Load nearby addresses from database
-        async function loadNearbyAddresses(lat, lng) {
+        // Load addresses from Google Sheets
+        async function loadAddressesFromSheet() {
             try {
-                const response = await fetch(`${CONFIG.API_BASE_URL}/api/addresses?lat=${lat}&lng=${lng}`);
-                if (!response.ok) throw new Error('Failed to fetch addresses');
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.GOOGLE_SHEET_ID}/values/${CONFIG.SHEET_NAME}?key=${CONFIG.GOOGLE_API_KEY}`;
 
-                const addresses = await response.json();
-
-                // Clear existing saved circles
-                savedCircles.forEach(circle => circle.setMap(null));
-                savedCircles = [];
-
-                // Create circles for each nearby address
-                addresses.forEach(addr => {
-                    const privacyCenter = addPrivacyOffset(addr.lat, addr.lng);
-
-                    const circle = new google.maps.Circle({
-                        strokeColor: CONFIG.SAVED_STROKE_COLOR,
-                        strokeOpacity: CONFIG.SAVED_STROKE_OPACITY,
-                        strokeWeight: CONFIG.SAVED_STROKE_WEIGHT,
-                        fillColor: CONFIG.SAVED_FILL_COLOR,
-                        fillOpacity: CONFIG.SAVED_FILL_OPACITY,
-                        map: map,
-                        center: privacyCenter,
-                        radius: CONFIG.RADIUS_METERS
-                    });
-
-                    savedCircles.push(circle);
-                });
-
-                // Update results info
-                const resultsInfo = document.getElementById('results-info');
-                if (addresses.length > 0) {
-                    resultsInfo.textContent = `Found ${addresses.length} location${addresses.length > 1 ? 's' : ''} within 1/4 mile of your search.`;
-                    resultsInfo.style.display = 'block';
-                } else {
-                    resultsInfo.textContent = 'No other locations found within 1/4 mile of your search.';
-                    resultsInfo.style.display = 'block';
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch from Google Sheets');
                 }
 
-                return addresses.length;
+                const data = await response.json();
+                const rows = data.values;
+
+                if (!rows || rows.length < 2) {
+                    console.log('No addresses found in sheet');
+                    allAddresses = [];
+                    return;
+                }
+
+                // First row is headers, rest are data
+                // Expected columns: address, lat, lng, label (optional)
+                const headers = rows[0].map(h => h.toLowerCase().trim());
+                const addressIdx = headers.indexOf('address');
+                const latIdx = headers.indexOf('lat');
+                const lngIdx = headers.indexOf('lng');
+                const labelIdx = headers.indexOf('label');
+
+                if (latIdx === -1 || lngIdx === -1) {
+                    console.error('Sheet must have "lat" and "lng" columns');
+                    return;
+                }
+
+                allAddresses = rows.slice(1).map((row, index) => ({
+                    id: index + 1,
+                    address: addressIdx !== -1 ? row[addressIdx] || '' : '',
+                    lat: parseFloat(row[latIdx]) || 0,
+                    lng: parseFloat(row[lngIdx]) || 0,
+                    label: labelIdx !== -1 ? row[labelIdx] || '' : ''
+                })).filter(addr => addr.lat !== 0 && addr.lng !== 0);
+
+                console.log(`Loaded ${allAddresses.length} addresses from Google Sheets`);
 
             } catch (error) {
-                console.error('Error loading nearby addresses:', error);
-                return 0;
+                console.error('Error loading addresses from Google Sheets:', error);
+                allAddresses = [];
             }
+        }
+
+        // Get nearby addresses from cached data
+        function getNearbyAddresses(lat, lng) {
+            return allAddresses.filter(addr => {
+                const distance = getDistanceInMeters(lat, lng, addr.lat, addr.lng);
+                return distance <= CONFIG.QUARTER_MILE_METERS;
+            });
+        }
+
+        // Display nearby addresses on map
+        function displayNearbyAddresses(lat, lng) {
+            // Clear existing saved circles
+            savedCircles.forEach(circle => circle.setMap(null));
+            savedCircles = [];
+
+            const nearbyAddresses = getNearbyAddresses(lat, lng);
+
+            // Create circles for each nearby address
+            nearbyAddresses.forEach(addr => {
+                const privacyCenter = addPrivacyOffset(addr.lat, addr.lng);
+
+                const circle = new google.maps.Circle({
+                    strokeColor: CONFIG.SAVED_STROKE_COLOR,
+                    strokeOpacity: CONFIG.SAVED_STROKE_OPACITY,
+                    strokeWeight: CONFIG.SAVED_STROKE_WEIGHT,
+                    fillColor: CONFIG.SAVED_FILL_COLOR,
+                    fillOpacity: CONFIG.SAVED_FILL_OPACITY,
+                    map: map,
+                    center: privacyCenter,
+                    radius: CONFIG.RADIUS_METERS
+                });
+
+                savedCircles.push(circle);
+            });
+
+            // Update results info
+            const resultsInfo = document.getElementById('results-info');
+            if (nearbyAddresses.length > 0) {
+                resultsInfo.textContent = `Found ${nearbyAddresses.length} location${nearbyAddresses.length > 1 ? 's' : ''} within 1/4 mile of your search.`;
+                resultsInfo.style.display = 'block';
+            } else {
+                resultsInfo.textContent = 'No other locations found within 1/4 mile of your search.';
+                resultsInfo.style.display = 'block';
+            }
+
+            return nearbyAddresses.length;
         }
 
         // Fit map to show all circles
@@ -342,7 +420,7 @@
         }
 
         // Search for address and display radius
-        function searchAddress() {
+        async function searchAddress() {
             const address = document.getElementById('address-input').value.trim();
             const errorElement = document.getElementById('error-message');
             const searchBtn = document.getElementById('search-btn');
@@ -358,7 +436,10 @@
             errorElement.style.display = 'none';
             resultsInfo.style.display = 'none';
 
-            geocoder.geocode({ address: address }, async (results, status) => {
+            // Reload addresses from sheet (in case new ones were added)
+            await loadAddressesFromSheet();
+
+            geocoder.geocode({ address: address }, (results, status) => {
                 searchBtn.disabled = false;
                 searchBtn.textContent = 'Search';
 
@@ -386,8 +467,8 @@
                         radius: CONFIG.RADIUS_METERS
                     });
 
-                    // Load nearby addresses from database (within 1/4 mile)
-                    await loadNearbyAddresses(lat, lng);
+                    // Display nearby addresses from Google Sheets
+                    displayNearbyAddresses(lat, lng);
 
                     // Fit map to show all circles
                     fitMapToAllCircles();
@@ -408,8 +489,12 @@
         window.initMap = initMap;
     </script>
 
+    <!--
+        IMPORTANT: Replace YOUR_GOOGLE_API_KEY with your actual Google API key
+        This key needs both Maps JavaScript API and Sheets API enabled
+    -->
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&callback=initMap">
     </script>
 </body>
 </html>

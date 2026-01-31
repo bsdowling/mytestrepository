@@ -1,111 +1,111 @@
 # Location Radius Map
 
-A privacy-focused Google Maps component with a backend database. Users can search for an address and see nearby saved locations (within 1/4 mile) displayed as colored circles.
+A privacy-focused Google Maps component that uses Google Sheets as a database. Users can search for an address and see nearby saved locations (within 1/4 mile) displayed as colored circles.
 
 ## Features
 
 - Search any address to display an approximate 1/8 mile radius
-- Shows saved database locations within 1/4 mile of the searched address
-- Different colors: Blue for searched location, Yellow/Orange for database locations
+- Shows saved locations from Google Sheets within 1/4 mile of the searched address
+- Different colors: Blue for searched location, Yellow/Orange for saved locations
 - Privacy protection: Coordinates are slightly randomized
 - No markers placed at exact locations
-- Embeddable on any website
+- Static HTML - no server required, host anywhere
 - Mobile responsive
-
-## Project Structure
-
-```
-├── server.js          # Node.js/Express backend
-├── package.json       # Dependencies
-├── addresses.db       # SQLite database (created on first run)
-└── public/
-    └── index.html     # Frontend map interface
-```
 
 ## Setup
 
-### 1. Install Dependencies
+### Step 1: Create Your Google Sheet
 
-```bash
-npm install
+1. Go to [Google Sheets](https://sheets.google.com) and create a new spreadsheet
+2. Name it something like "Location Database"
+3. Set up these columns in Row 1:
+
+| A | B | C | D |
+|---|---|---|---|
+| address | lat | lng | label |
+
+4. Add your addresses starting from Row 2:
+
+| address | lat | lng | label |
+|---------|-----|-----|-------|
+| 123 Main St, Austin, TX | 30.2672 | -97.7431 | Location A |
+| 456 Oak Ave, Austin, TX | 30.2700 | -97.7400 | Location B |
+
+### Step 2: Get Your Google Sheet ID
+
+Your Sheet URL looks like:
+```
+https://docs.google.com/spreadsheets/d/1ABC123xyz789/edit
 ```
 
-### 2. Get a Google Maps API Key
+The Sheet ID is the part between `/d/` and `/edit`:
+```
+1ABC123xyz789
+```
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+### Step 3: Get a Google API Key
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select an existing one
-3. Enable: **Maps JavaScript API** and **Geocoding API**
-4. Go to "Credentials" and create an API key
+3. Enable these APIs:
+   - **Maps JavaScript API**
+   - **Geocoding API**
+   - **Google Sheets API**
+4. Go to "Credentials" → "Create Credentials" → "API Key"
+5. (Recommended) Click "Edit API Key" and restrict it:
+   - Under "Application restrictions" → "HTTP referrers"
+   - Add your domain (e.g., `https://yourdomain.com/*`)
+   - Under "API restrictions" → Select the 3 APIs above
 
-### 3. Add Your API Key
+### Step 4: Configure index.html
 
-Edit `public/index.html` and replace `YOUR_API_KEY` with your actual API key (line 412).
+Open `index.html` and update the CONFIG section (around line 175):
 
-### 4. Run the Server
-
-```bash
-npm start
+```javascript
+const CONFIG = {
+    GOOGLE_SHEET_ID: 'YOUR_GOOGLE_SHEET_ID',  // From Step 2
+    GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY',     // From Step 3
+    SHEET_NAME: 'Sheet1',                       // Your tab name
+    // ... rest of config
+};
 ```
 
-Server runs at `http://localhost:3000`
+Also update the Google Maps script at the bottom (line googlemaps):
 
-## Adding Addresses to the Database (Admin)
-
-Addresses are added via the API. Users cannot add addresses - only admins can.
-
-### Using curl
-
-```bash
-# Add a single address
-curl -X POST http://localhost:3000/api/addresses \
-  -H "Content-Type: application/json" \
-  -d '{"address": "123 Main St, City, State", "lat": 40.7128, "lng": -74.0060, "label": "Location A"}'
+```html
+<script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&callback=initMap">
+</script>
 ```
 
-### Using a REST client (Postman, Insomnia, etc.)
+### Step 5: Deploy to Bluehost
 
-**POST** `http://localhost:3000/api/addresses`
+1. Upload `index.html` to your Bluehost File Manager
+2. That's it! No server needed.
 
-```json
-{
-  "address": "123 Main St, City, State",
-  "lat": 40.7128,
-  "lng": -74.0060,
-  "label": "Optional label"
-}
-```
+## Adding Addresses
 
-### Getting coordinates for an address
+Simply add new rows to your Google Sheet:
 
-You can use Google's Geocoding API or search the address on Google Maps and extract coordinates from the URL.
+| address | lat | lng | label |
+|---------|-----|-----|-------|
+| 789 Pine St, Austin, TX | 30.2650 | -97.7450 | New Location |
 
-### View all addresses
+The map will automatically pick up new addresses on the next search.
 
-```bash
-curl http://localhost:3000/api/addresses
-```
+### How to Get Coordinates
 
-### Delete an address
-
-```bash
-curl -X DELETE http://localhost:3000/api/addresses/1
-```
-
-(Replace `1` with the address ID)
-
-## How It Works
-
-1. User enters an address and clicks Search
-2. The frontend geocodes the address to get coordinates
-3. The blue circle appears showing the searched location (1/8 mile radius)
-4. The frontend queries the API for database addresses within 1/4 mile
-5. Yellow/orange circles appear for any nearby saved locations
+1. Go to [Google Maps](https://maps.google.com)
+2. Search for the address
+3. Right-click on the exact location
+4. Click the coordinates to copy them (e.g., `30.2672, -97.7431`)
+5. First number = lat, second number = lng
 
 ## Embedding
 
 ```html
 <iframe
-    src="https://yourserver.com/?embed=true"
+    src="https://yourdomain.com/index.html?embed=true"
     width="100%"
     height="600"
     style="border: none;">
@@ -116,34 +116,49 @@ With pre-populated address:
 
 ```html
 <iframe
-    src="https://yourserver.com/?embed=true&address=Times%20Square%2C%20New%20York"
+    src="https://yourdomain.com/index.html?embed=true&address=Austin%2C%20TX"
     width="100%"
     height="600"
     style="border: none;">
 </iframe>
 ```
 
-## Configuration
+## Configuration Options
 
-Edit `CONFIG` in `public/index.html`:
+Edit the `CONFIG` object in `index.html`:
 
 ```javascript
 const CONFIG = {
-    RADIUS_METERS: 201.168,        // 1/8 mile display radius
-    PRIVACY_OFFSET_METERS: 50,     // Random offset for privacy
-    API_BASE_URL: window.location.origin  // Change for production
+    GOOGLE_SHEET_ID: 'your-sheet-id',
+    GOOGLE_API_KEY: 'your-api-key',
+    SHEET_NAME: 'Sheet1',
+
+    RADIUS_METERS: 201.168,         // Display circle size (1/8 mile)
+    QUARTER_MILE_METERS: 402.336,   // Search radius for nearby locations
+    PRIVACY_OFFSET_METERS: 50,      // Random offset for privacy
+
+    // Circle colors
+    SEARCHED_FILL_COLOR: '#4285f4',  // Blue for searched
+    SAVED_FILL_COLOR: '#f9ab00',     // Yellow for saved
 };
 ```
 
-Edit `server.js` for the nearby search radius:
+## Troubleshooting
 
-```javascript
-const QUARTER_MILE_METERS = 402.336;  // Distance to search for nearby addresses
-```
+**"Failed to fetch from Google Sheets"**
+- Make sure your API key has Sheets API enabled
+- Check that the Sheet ID is correct
+- Verify the sheet name matches exactly
 
-## Deployment
+**Addresses not showing**
+- Check that lat/lng columns have valid numbers
+- Make sure there are no empty rows between data
+- Column headers must be exactly: `address`, `lat`, `lng`, `label`
 
-For production, you'll need a Node.js hosting environment (Railway, Render, Fly.io, DigitalOcean, etc.) since this requires a backend server.
+**Map not loading**
+- Verify Maps JavaScript API is enabled
+- Check browser console for errors
+- Make sure API key is correct in both CONFIG and script tag
 
 ## License
 
