@@ -202,10 +202,10 @@
         const CONFIG = {
             // Google Sheets Configuration
             // Your Google Sheet ID (from the URL: https://docs.google.com/spreadsheets/d/SHEET_ID/edit)
-            GOOGLE_SHEET_ID: 'YOUR_GOOGLE_SHEET_ID',
+            GOOGLE_SHEET_ID: '11_YozhzZNOh45Gs9aNibj3bFlWxfL5A4sFKAsYMfw-c',
 
             // Google API Key (get from Google Cloud Console)
-            GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY',
+            GOOGLE_API_KEY: 'AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70',
 
             // Sheet name (tab name at bottom of spreadsheet)
             SHEET_NAME: 'Sheet1',
@@ -310,7 +310,7 @@
         // Load addresses from Google Sheets
         async function loadAddressesFromSheet() {
             try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.GOOGLE_SHEET_ID}/values/${CONFIG.SHEET_NAME}?key=${CONFIG.GOOGLE_API_KEY}`;
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.GOOGLE_SHEET_ID}/values/${CONFIG.SHEET_NAME}?key=${AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70}`;
 
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -494,7 +494,7 @@
         This key needs both Maps JavaScript API and Sheets API enabled
     -->
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&callback=initMap">
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70&callback=initMap">
     </script>
 </body>
 </html>
