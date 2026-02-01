@@ -3,498 +3,146 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Location Radius Map</title>
+    <title>Location Map</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background-color: #f5f5f5;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-            font-size: 24px;
-        }
-
-        .search-container {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        #address-input {
-            flex: 1;
-            min-width: 250px;
-            padding: 12px 16px;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-
-        #address-input:focus {
-            border-color: #4285f4;
-        }
-
-        #search-btn {
-            padding: 12px 24px;
-            font-size: 16px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            background-color: #4285f4;
-            color: white;
-        }
-
-        #search-btn:hover {
-            background-color: #3367d6;
-        }
-
-        #search-btn:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        #map {
-            width: 100%;
-            height: 500px;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .info-text {
-            margin-top: 15px;
-            padding: 12px;
-            background-color: #e8f4fd;
-            border-radius: 8px;
-            color: #1a73e8;
-            font-size: 14px;
-        }
-
-        .legend {
-            margin-top: 15px;
-            padding: 12px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .legend-title {
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
-            font-size: 14px;
-            color: #666;
-        }
-
-        .legend-circle {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 2px solid;
-        }
-
-        .legend-circle.searched {
-            background-color: rgba(66, 133, 244, 0.3);
-            border-color: #4285f4;
-        }
-
-        .legend-circle.saved {
-            background-color: rgba(251, 188, 4, 0.3);
-            border-color: #f9ab00;
-        }
-
-        .error-text {
-            margin-top: 15px;
-            padding: 12px;
-            background-color: #fce8e6;
-            border-radius: 8px;
-            color: #d93025;
-            font-size: 14px;
-            display: none;
-        }
-
-        .results-info {
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
-            display: none;
-        }
-
-        /* Embed-friendly styles */
-        .embed-mode {
-            padding: 0;
-        }
-
-        .embed-mode .container {
-            max-width: 100%;
-        }
-
-        .embed-mode h1 {
-            display: none;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 20px; font-size: 24px; }
+        #map { width: 100%; height: 500px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .info-text { margin-top: 15px; padding: 12px; background-color: #e8f4fd; border-radius: 8px; color: #1a73e8; font-size: 14px; }
+        .results-info { margin-top: 10px; font-size: 14px; color: #666; }
+        .error-text { margin-top: 15px; padding: 12px; background-color: #fce8e6; border-radius: 8px; color: #d93025; font-size: 14px; display: none; }
+        .embed-mode { padding: 0; }
+        .embed-mode .container { max-width: 100%; }
+        .embed-mode h1 { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Location Radius Search</h1>
-
-        <div class="search-container">
-            <input
-                type="text"
-                id="address-input"
-                placeholder="Enter an address (e.g., 123 Main St, City, State)"
-                autocomplete="off"
-            >
-            <button id="search-btn">Search</button>
-        </div>
-
+        <h1>Locations Map</h1>
         <div id="map"></div>
-
         <p class="results-info" id="results-info"></p>
-
-        <div class="legend">
-            <div class="legend-title">Legend</div>
-            <div class="legend-item">
-                <div class="legend-circle searched"></div>
-                <span>Your searched location</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-circle saved"></div>
-                <span>Nearby locations (within 1/4 mile)</span>
-            </div>
-        </div>
-
-        <p class="info-text">
-            This map shows an approximate 1/8 mile (200 meter) radius around locations.
-            The exact addresses are not displayed for privacy.
-        </p>
-
+        <p class="info-text">This map shows approximate locations. Exact addresses are not displayed for privacy.</p>
         <p class="error-text" id="error-message"></p>
     </div>
-
     <script>
-        // ===========================================
-        // CONFIGURATION - UPDATE THESE VALUES
-        // ===========================================
-        const CONFIG = {
-            // Google Sheets Configuration
-            // Your Google Sheet ID (from the URL: https://docs.google.com/spreadsheets/d/SHEET_ID/edit)
+        var CONFIG = {
             GOOGLE_SHEET_ID: '11_YozhzZNOh45Gs9aNibj3bFlWxfL5A4sFKAsYMfw-c',
-
-            // Google API Key (get from Google Cloud Console)
             GOOGLE_API_KEY: 'AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70',
-
-            // Sheet name (tab name at bottom of spreadsheet)
             SHEET_NAME: 'Sheet1',
-
-            // Map Configuration
-            RADIUS_METERS: 201.168, // 1/8 mile in meters
-            QUARTER_MILE_METERS: 402.336, // for nearby search
-            DEFAULT_ZOOM: 15,
-
-            // Colors for searched address
-            SEARCHED_FILL_COLOR: '#4285f4',
-            SEARCHED_FILL_OPACITY: 0.25,
-            SEARCHED_STROKE_COLOR: '#4285f4',
-            SEARCHED_STROKE_OPACITY: 0.9,
-            SEARCHED_STROKE_WEIGHT: 3,
-
-            // Colors for saved addresses from database
-            SAVED_FILL_COLOR: '#f9ab00',
-            SAVED_FILL_OPACITY: 0.2,
-            SAVED_STROKE_COLOR: '#f9ab00',
-            SAVED_STROKE_OPACITY: 0.8,
-            SAVED_STROKE_WEIGHT: 2,
-
-            // Privacy offset
+            RADIUS_METERS: 201.168,
+            FILL_COLOR: '#f9ab00',
+            FILL_OPACITY: 0.25,
+            STROKE_COLOR: '#f9ab00',
+            STROKE_OPACITY: 0.8,
+            STROKE_WEIGHT: 2,
             PRIVACY_OFFSET_METERS: 50
         };
 
-        let map;
-        let searchedCircle;
-        let savedCircles = [];
-        let geocoder;
-        let allAddresses = []; // Cache of addresses from Google Sheets
+        var map;
+        var circles = [];
 
-        // Initialize the map
         function initMap() {
-            const defaultCenter = { lat: 39.8283, lng: -98.5795 };
-
             map = new google.maps.Map(document.getElementById('map'), {
                 zoom: 4,
-                center: defaultCenter,
+                center: { lat: 39.8283, lng: -98.5795 },
                 mapTypeControl: true,
                 streetViewControl: false,
-                fullscreenControl: true,
-                styles: [
-                    {
-                        featureType: 'poi',
-                        elementType: 'labels',
-                        stylers: [{ visibility: 'off' }]
-                    }
-                ]
+                fullscreenControl: true
             });
 
-            geocoder = new google.maps.Geocoder();
-
-            // Set up event listeners
-            document.getElementById('search-btn').addEventListener('click', searchAddress);
-            document.getElementById('address-input').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    searchAddress();
-                }
-            });
-
-            // Check for URL parameters
-            const urlParams = new URLSearchParams(window.location.search);
-            const presetAddress = urlParams.get('address');
-            if (presetAddress) {
-                document.getElementById('address-input').value = presetAddress;
-                searchAddress();
-            }
-
+            var urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('embed') === 'true') {
                 document.body.classList.add('embed-mode');
             }
 
-            // Load addresses from Google Sheets on startup
             loadAddressesFromSheet();
         }
 
-        // Haversine formula to calculate distance between two points in meters
-        function getDistanceInMeters(lat1, lng1, lat2, lng2) {
-            const R = 6371000;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLng = (lng2 - lng1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLng / 2) * Math.sin(dLng / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
-        }
-
-        // Add privacy offset to coordinates
         function addPrivacyOffset(lat, lng) {
-            const offsetLat = (Math.random() - 0.5) * 2 * (CONFIG.PRIVACY_OFFSET_METERS / 111320);
-            const offsetLng = (Math.random() - 0.5) * 2 * (CONFIG.PRIVACY_OFFSET_METERS / (111320 * Math.cos(lat * Math.PI / 180)));
-
-            return {
-                lat: lat + offsetLat,
-                lng: lng + offsetLng
-            };
+            var offsetLat = (Math.random() - 0.5) * 2 * (CONFIG.PRIVACY_OFFSET_METERS / 111320);
+            var offsetLng = (Math.random() - 0.5) * 2 * (CONFIG.PRIVACY_OFFSET_METERS / (111320 * Math.cos(lat * Math.PI / 180)));
+            return { lat: lat + offsetLat, lng: lng + offsetLng };
         }
 
-        // Load addresses from Google Sheets
-        async function loadAddressesFromSheet() {
-            try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.GOOGLE_SHEET_ID}/values/${CONFIG.SHEET_NAME}?key=${CONFIG.GOOGLE_API_KEY}`;
+        function loadAddressesFromSheet() {
+            var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + CONFIG.GOOGLE_SHEET_ID + '/values/' + CONFIG.SHEET_NAME + '?key=' + CONFIG.GOOGLE_API_KEY;
 
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch from Google Sheets');
-                }
+            fetch(url)
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Failed to fetch');
+                    return response.json();
+                })
+                .then(function(data) {
+                    if (!data.values || data.values.length < 2) {
+                        document.getElementById('results-info').textContent = 'No locations found.';
+                        return;
+                    }
 
-                const data = await response.json();
-                const rows = data.values;
+                    var headers = data.values[0].map(function(h) { return h.toLowerCase().trim(); });
+                    var latIdx = headers.indexOf('lat');
+                    var lngIdx = headers.indexOf('lng');
 
-                if (!rows || rows.length < 2) {
-                    console.log('No addresses found in sheet');
-                    allAddresses = [];
-                    return;
-                }
+                    if (latIdx === -1 || lngIdx === -1) {
+                        console.error('Sheet must have lat and lng columns');
+                        return;
+                    }
 
-                // First row is headers, rest are data
-                // Expected columns: address, lat, lng, label (optional)
-                const headers = rows[0].map(h => h.toLowerCase().trim());
-                const addressIdx = headers.indexOf('address');
-                const latIdx = headers.indexOf('lat');
-                const lngIdx = headers.indexOf('lng');
-                const labelIdx = headers.indexOf('label');
+                    var addresses = data.values.slice(1).map(function(row) {
+                        return {
+                            lat: parseFloat(row[latIdx]) || 0,
+                            lng: parseFloat(row[lngIdx]) || 0
+                        };
+                    }).filter(function(addr) {
+                        return addr.lat !== 0 && addr.lng !== 0;
+                    });
 
-                if (latIdx === -1 || lngIdx === -1) {
-                    console.error('Sheet must have "lat" and "lng" columns');
-                    return;
-                }
-
-                allAddresses = rows.slice(1).map((row, index) => ({
-                    id: index + 1,
-                    address: addressIdx !== -1 ? row[addressIdx] || '' : '',
-                    lat: parseFloat(row[latIdx]) || 0,
-                    lng: parseFloat(row[lngIdx]) || 0,
-                    label: labelIdx !== -1 ? row[labelIdx] || '' : ''
-                })).filter(addr => addr.lat !== 0 && addr.lng !== 0);
-
-                console.log(`Loaded ${allAddresses.length} addresses from Google Sheets`);
-
-            } catch (error) {
-                console.error('Error loading addresses from Google Sheets:', error);
-                allAddresses = [];
-            }
+                    displayAllAddresses(addresses);
+                })
+                .catch(function(error) {
+                    console.error('Error loading from Google Sheets:', error);
+                    document.getElementById('error-message').textContent = 'Error loading locations: ' + error.message;
+                    document.getElementById('error-message').style.display = 'block';
+                });
         }
 
-        // Get nearby addresses from cached data
-        function getNearbyAddresses(lat, lng) {
-            return allAddresses.filter(addr => {
-                const distance = getDistanceInMeters(lat, lng, addr.lat, addr.lng);
-                return distance <= CONFIG.QUARTER_MILE_METERS;
-            });
-        }
+        function displayAllAddresses(addresses) {
+            // Clear existing circles
+            circles.forEach(function(c) { c.setMap(null); });
+            circles = [];
 
-        // Display nearby addresses on map
-        function displayNearbyAddresses(lat, lng) {
-            // Clear existing saved circles
-            savedCircles.forEach(circle => circle.setMap(null));
-            savedCircles = [];
+            var bounds = new google.maps.LatLngBounds();
 
-            const nearbyAddresses = getNearbyAddresses(lat, lng);
+            addresses.forEach(function(addr) {
+                var center = addPrivacyOffset(addr.lat, addr.lng);
 
-            // Create circles for each nearby address
-            nearbyAddresses.forEach(addr => {
-                const privacyCenter = addPrivacyOffset(addr.lat, addr.lng);
-
-                const circle = new google.maps.Circle({
-                    strokeColor: CONFIG.SAVED_STROKE_COLOR,
-                    strokeOpacity: CONFIG.SAVED_STROKE_OPACITY,
-                    strokeWeight: CONFIG.SAVED_STROKE_WEIGHT,
-                    fillColor: CONFIG.SAVED_FILL_COLOR,
-                    fillOpacity: CONFIG.SAVED_FILL_OPACITY,
+                var circle = new google.maps.Circle({
+                    strokeColor: CONFIG.STROKE_COLOR,
+                    strokeOpacity: CONFIG.STROKE_OPACITY,
+                    strokeWeight: CONFIG.STROKE_WEIGHT,
+                    fillColor: CONFIG.FILL_COLOR,
+                    fillOpacity: CONFIG.FILL_OPACITY,
                     map: map,
-                    center: privacyCenter,
+                    center: center,
                     radius: CONFIG.RADIUS_METERS
                 });
 
-                savedCircles.push(circle);
+                circles.push(circle);
+                bounds.extend(center);
             });
 
-            // Update results info
-            const resultsInfo = document.getElementById('results-info');
-            if (nearbyAddresses.length > 0) {
-                resultsInfo.textContent = `Found ${nearbyAddresses.length} location${nearbyAddresses.length > 1 ? 's' : ''} within 1/4 mile of your search.`;
-                resultsInfo.style.display = 'block';
-            } else {
-                resultsInfo.textContent = 'No other locations found within 1/4 mile of your search.';
-                resultsInfo.style.display = 'block';
-            }
-
-            return nearbyAddresses.length;
-        }
-
-        // Fit map to show all circles
-        function fitMapToAllCircles() {
-            const bounds = new google.maps.LatLngBounds();
-
-            if (searchedCircle) {
-                bounds.union(searchedCircle.getBounds());
-            }
-
-            savedCircles.forEach(circle => {
-                bounds.union(circle.getBounds());
-            });
-
-            if (!bounds.isEmpty()) {
+            // Fit map to show all circles
+            if (addresses.length > 0) {
                 map.fitBounds(bounds);
+                document.getElementById('results-info').textContent = 'Showing ' + addresses.length + ' location' + (addresses.length > 1 ? 's' : '') + '.';
+            } else {
+                document.getElementById('results-info').textContent = 'No locations found.';
             }
-        }
-
-        // Search for address and display radius
-        async function searchAddress() {
-            const address = document.getElementById('address-input').value.trim();
-            const errorElement = document.getElementById('error-message');
-            const searchBtn = document.getElementById('search-btn');
-            const resultsInfo = document.getElementById('results-info');
-
-            if (!address) {
-                showError('Please enter an address');
-                return;
-            }
-
-            searchBtn.disabled = true;
-            searchBtn.textContent = 'Searching...';
-            errorElement.style.display = 'none';
-            resultsInfo.style.display = 'none';
-
-            // Reload addresses from sheet (in case new ones were added)
-            await loadAddressesFromSheet();
-
-            geocoder.geocode({ address: address }, (results, status) => {
-                searchBtn.disabled = false;
-                searchBtn.textContent = 'Search';
-
-                if (status === 'OK' && results[0]) {
-                    const location = results[0].geometry.location;
-                    const lat = location.lat();
-                    const lng = location.lng();
-
-                    const privacyCenter = addPrivacyOffset(lat, lng);
-
-                    // Remove existing searched circle
-                    if (searchedCircle) {
-                        searchedCircle.setMap(null);
-                    }
-
-                    // Create new searched circle (blue)
-                    searchedCircle = new google.maps.Circle({
-                        strokeColor: CONFIG.SEARCHED_STROKE_COLOR,
-                        strokeOpacity: CONFIG.SEARCHED_STROKE_OPACITY,
-                        strokeWeight: CONFIG.SEARCHED_STROKE_WEIGHT,
-                        fillColor: CONFIG.SEARCHED_FILL_COLOR,
-                        fillOpacity: CONFIG.SEARCHED_FILL_OPACITY,
-                        map: map,
-                        center: privacyCenter,
-                        radius: CONFIG.RADIUS_METERS
-                    });
-
-                    // Display nearby addresses from Google Sheets
-                    displayNearbyAddresses(lat, lng);
-
-                    // Fit map to show all circles
-                    fitMapToAllCircles();
-
-                } else {
-                    showError('Could not find that address. Please try a different address.');
-                }
-            });
-        }
-
-        // Show error message
-        function showError(message) {
-            const errorElement = document.getElementById('error-message');
-            errorElement.textContent = message;
-            errorElement.style.display = 'block';
         }
 
         window.initMap = initMap;
     </script>
-
-    <!--
-        IMPORTANT: Replace YOUR_GOOGLE_API_KEY with your actual Google API key
-        This key needs both Maps JavaScript API and Sheets API enabled
-    -->
-    <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70&callback=initMap">
-    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70&callback=initMap"></script>
 </body>
 </html>
