@@ -9,7 +9,19 @@
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; }
         h1 { color: #333; margin-bottom: 20px; font-size: 24px; }
+        .search-container { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        #address-input { flex: 1; min-width: 250px; padding: 12px 16px; font-size: 16px; border: 2px solid #ddd; border-radius: 8px; outline: none; }
+        #address-input:focus { border-color: #4285f4; }
+        #search-btn { padding: 12px 24px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; background-color: #4285f4; color: white; }
+        #search-btn:hover { background-color: #3367d6; }
+        #search-btn:disabled { background-color: #ccc; cursor: not-allowed; }
         #map { width: 100%; height: 500px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .legend { margin-top: 15px; padding: 12px; background-color: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+        .legend-title { font-weight: 600; margin-bottom: 8px; color: #333; }
+        .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 14px; color: #666; }
+        .legend-circle { width: 16px; height: 16px; border-radius: 50%; border: 2px solid; }
+        .legend-circle.searched { background-color: rgba(66,133,244,0.3); border-color: #4285f4; }
+        .legend-circle.saved { background-color: rgba(251,188,4,0.3); border-color: #f9ab00; }
         .info-text { margin-top: 15px; padding: 12px; background-color: #e8f4fd; border-radius: 8px; color: #1a73e8; font-size: 14px; }
         .results-info { margin-top: 10px; font-size: 14px; color: #666; }
         .error-text { margin-top: 15px; padding: 12px; background-color: #fce8e6; border-radius: 8px; color: #d93025; font-size: 14px; display: none; }
@@ -20,9 +32,18 @@
 </head>
 <body>
     <div class="container">
-        <h1>Locations Map</h1>
+        <h1>Location Map</h1>
+        <div class="search-container">
+            <input type="text" id="address-input" placeholder="Enter an address to search" autocomplete="off">
+            <button id="search-btn">Search</button>
+        </div>
         <div id="map"></div>
         <p class="results-info" id="results-info"></p>
+        <div class="legend">
+            <div class="legend-title">Legend</div>
+            <div class="legend-item"><div class="legend-circle searched"></div><span>Your searched location</span></div>
+            <div class="legend-item"><div class="legend-circle saved"></div><span>Database locations</span></div>
+        </div>
         <p class="info-text">This map shows approximate locations. Exact addresses are not displayed for privacy.</p>
         <p class="error-text" id="error-message"></p>
     </div>
@@ -32,16 +53,21 @@
             GOOGLE_API_KEY: 'AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70',
             SHEET_NAME: 'Sheet1',
             RADIUS_METERS: 201.168,
-            FILL_COLOR: '#f9ab00',
-            FILL_OPACITY: 0.25,
-            STROKE_COLOR: '#f9ab00',
-            STROKE_OPACITY: 0.8,
-            STROKE_WEIGHT: 2,
+            SEARCHED_FILL_COLOR: '#4285f4',
+            SEARCHED_FILL_OPACITY: 0.3,
+            SEARCHED_STROKE_COLOR: '#4285f4',
+            SEARCHED_STROKE_OPACITY: 0.9,
+            SEARCHED_STROKE_WEIGHT: 3,
+            SAVED_FILL_COLOR: '#f9ab00',
+            SAVED_FILL_OPACITY: 0.25,
+            SAVED_STROKE_COLOR: '#f9ab00',
+            SAVED_STROKE_OPACITY: 0.8,
+            SAVED_STROKE_WEIGHT: 2,
             PRIVACY_OFFSET_METERS: 50
         };
 
-        var map;
-        var circles = [];
+        var map, geocoder, searchedCircle;
+        var savedCircles = [];
 
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
@@ -50,6 +76,13 @@
                 mapTypeControl: true,
                 streetViewControl: false,
                 fullscreenControl: true
+            });
+
+            geocoder = new google.maps.Geocoder();
+
+            document.getElementById('search-btn').addEventListener('click', searchAddress);
+            document.getElementById('address-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') searchAddress();
             });
 
             var urlParams = new URLSearchParams(window.location.search);
@@ -76,7 +109,7 @@
                 })
                 .then(function(data) {
                     if (!data.values || data.values.length < 2) {
-                        document.getElementById('results-info').textContent = 'No locations found.';
+                        document.getElementById('results-info').textContent = 'No locations found in database.';
                         return;
                     }
 
@@ -108,9 +141,8 @@
         }
 
         function displayAllAddresses(addresses) {
-            // Clear existing circles
-            circles.forEach(function(c) { c.setMap(null); });
-            circles = [];
+            savedCircles.forEach(function(c) { c.setMap(null); });
+            savedCircles = [];
 
             var bounds = new google.maps.LatLngBounds();
 
@@ -118,27 +150,75 @@
                 var center = addPrivacyOffset(addr.lat, addr.lng);
 
                 var circle = new google.maps.Circle({
-                    strokeColor: CONFIG.STROKE_COLOR,
-                    strokeOpacity: CONFIG.STROKE_OPACITY,
-                    strokeWeight: CONFIG.STROKE_WEIGHT,
-                    fillColor: CONFIG.FILL_COLOR,
-                    fillOpacity: CONFIG.FILL_OPACITY,
+                    strokeColor: CONFIG.SAVED_STROKE_COLOR,
+                    strokeOpacity: CONFIG.SAVED_STROKE_OPACITY,
+                    strokeWeight: CONFIG.SAVED_STROKE_WEIGHT,
+                    fillColor: CONFIG.SAVED_FILL_COLOR,
+                    fillOpacity: CONFIG.SAVED_FILL_OPACITY,
                     map: map,
                     center: center,
                     radius: CONFIG.RADIUS_METERS
                 });
 
-                circles.push(circle);
+                savedCircles.push(circle);
                 bounds.extend(center);
             });
 
-            // Fit map to show all circles
             if (addresses.length > 0) {
                 map.fitBounds(bounds);
-                document.getElementById('results-info').textContent = 'Showing ' + addresses.length + ' location' + (addresses.length > 1 ? 's' : '') + '.';
+                document.getElementById('results-info').textContent = 'Showing ' + addresses.length + ' location' + (addresses.length > 1 ? 's' : '') + ' from database.';
             } else {
-                document.getElementById('results-info').textContent = 'No locations found.';
+                document.getElementById('results-info').textContent = 'No locations found in database.';
             }
+        }
+
+        function searchAddress() {
+            var address = document.getElementById('address-input').value.trim();
+            var searchBtn = document.getElementById('search-btn');
+            var errorEl = document.getElementById('error-message');
+
+            if (!address) {
+                errorEl.textContent = 'Please enter an address';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            searchBtn.disabled = true;
+            searchBtn.textContent = 'Searching...';
+            errorEl.style.display = 'none';
+
+            geocoder.geocode({ address: address }, function(results, status) {
+                searchBtn.disabled = false;
+                searchBtn.textContent = 'Search';
+
+                if (status === 'OK' && results[0]) {
+                    var loc = results[0].geometry.location;
+                    var center = addPrivacyOffset(loc.lat(), loc.lng());
+
+                    if (searchedCircle) searchedCircle.setMap(null);
+
+                    searchedCircle = new google.maps.Circle({
+                        strokeColor: CONFIG.SEARCHED_STROKE_COLOR,
+                        strokeOpacity: CONFIG.SEARCHED_STROKE_OPACITY,
+                        strokeWeight: CONFIG.SEARCHED_STROKE_WEIGHT,
+                        fillColor: CONFIG.SEARCHED_FILL_COLOR,
+                        fillOpacity: CONFIG.SEARCHED_FILL_OPACITY,
+                        map: map,
+                        center: center,
+                        radius: CONFIG.RADIUS_METERS
+                    });
+
+                    // Fit map to show searched location and all saved circles
+                    var bounds = new google.maps.LatLngBounds();
+                    bounds.extend(center);
+                    savedCircles.forEach(function(c) { bounds.extend(c.getCenter()); });
+                    map.fitBounds(bounds);
+
+                } else {
+                    errorEl.textContent = 'Could not find that address.';
+                    errorEl.style.display = 'block';
+                }
+            });
         }
 
         window.initMap = initMap;
