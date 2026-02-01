@@ -310,7 +310,7 @@
         // Load addresses from Google Sheets
         async function loadAddressesFromSheet() {
             try {
-                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.GOOGLE_SHEET_ID}/values/${CONFIG.SHEET_NAME}?key=${AIzaSyD0rGW-atn0yCvc5quvAolzqc2casHTg70}`;
+                const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.GOOGLE_SHEET_ID}/values/${CONFIG.SHEET_NAME}?key=${CONFIG.GOOGLE_API_KEY}`;
 
                 const response = await fetch(url);
                 if (!response.ok) {
