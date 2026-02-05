@@ -46,7 +46,12 @@ with app.app_context():
     db.create_all()
     # Ensure at least one agent profile row exists
     if not AgentProfile.query.first():
-        db.session.add(AgentProfile(agent_name="Your Agent Name"))
+        db.session.add(AgentProfile(
+            agent_name="Britt Dowling",
+            market_city="Montgomery, Alabama",
+            experience_url="https://www.experience.com/rest/survey/showsurveypage/britt-dowling-montgomery-alabama-realtor",
+            google_review_url="https://g.page/r/CWNhy9ZilaoPEAI/review",
+        ))
         db.session.commit()
 
 # ---------------------------------------------------------------------------
@@ -202,7 +207,7 @@ def generate():
     # Return results
     result = {
         "variants": variants,
-        "zillow_url": profile_obj.zillow_url or "",
+        "experience_url": profile_obj.experience_url or "",
         "google_url": profile_obj.get_google_url(),
         "agent_name": profile_obj.agent_name,
     }
@@ -296,7 +301,7 @@ def admin_update_profile():
         profile.market_city = _clean(form.market_city.data)
         profile.brand_color = _clean(form.brand_color.data) or "#2563eb"
         profile.logo_url = _clean(form.logo_url.data)
-        profile.zillow_url = _clean(form.zillow_url.data)
+        profile.experience_url = _clean(form.experience_url.data)
         profile.google_review_url = _clean(form.google_review_url.data)
         profile.google_place_id = _clean(form.google_place_id.data)
         db.session.commit()

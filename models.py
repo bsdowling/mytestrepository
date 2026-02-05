@@ -12,7 +12,7 @@ class AgentProfile(db.Model):
     market_city = db.Column(db.String(120), default="")
     brand_color = db.Column(db.String(7), default="#2563eb")  # hex
     logo_url = db.Column(db.String(500), default="")
-    zillow_url = db.Column(db.String(500), default="")
+    experience_url = db.Column(db.String(500), default="")
     google_review_url = db.Column(db.String(500), default="")
     google_place_id = db.Column(db.String(200), default="")
 

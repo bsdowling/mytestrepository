@@ -53,7 +53,7 @@ class AgentProfileForm(FlaskForm):
         render_kw={"placeholder": "#2563eb"},
     )
     logo_url = StringField("Logo URL", validators=[Optional(), Length(max=500)])
-    zillow_url = StringField("Zillow Review Page URL", validators=[Optional(), Length(max=500)])
+    experience_url = StringField("Experience.com Review URL", validators=[Optional(), Length(max=500)])
     google_review_url = StringField(
         "Google Write-a-Review URL",
         validators=[Optional(), Length(max=500)],

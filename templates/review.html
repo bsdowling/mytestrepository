@@ -87,9 +87,9 @@
 
     <!-- Action buttons -->
     <div class="flex flex-col gap-3 mt-6">
-        <a id="zillow-btn" href="#" target="_blank" rel="noopener"
+        <a id="experience-btn" href="#" target="_blank" rel="noopener"
             class="block w-full py-3 text-center text-lg font-semibold rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition disabled:opacity-40 pointer-events-none opacity-40">
-            Post on Zillow
+            Review on Experience.com
         </a>
         <a id="google-btn" href="#" target="_blank" rel="noopener"
             class="block w-full py-3 text-center text-lg font-semibold rounded-xl border-2 border-green-600 text-green-600 hover:bg-green-50 transition disabled:opacity-40 pointer-events-none opacity-40">
@@ -158,10 +158,10 @@
             renderVariants(generatedVariants);
 
             // Enable platform buttons
-            if (data.zillow_url) {
-                const zBtn = document.getElementById('zillow-btn');
-                zBtn.href = data.zillow_url;
-                zBtn.classList.remove('pointer-events-none', 'opacity-40');
+            if (data.experience_url) {
+                const eBtn = document.getElementById('experience-btn');
+                eBtn.href = data.experience_url;
+                eBtn.classList.remove('pointer-events-none', 'opacity-40');
             }
             if (data.google_url) {
                 const gBtn = document.getElementById('google-btn');

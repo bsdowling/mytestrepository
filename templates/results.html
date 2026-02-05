@@ -4,7 +4,7 @@
 {% block content %}
 <div class="text-center mb-6 mt-2">
     <h1 class="text-xl font-bold text-gray-900">Your Reviews</h1>
-    <p class="text-sm text-gray-500">Copy any version below and paste into Zillow or Google.</p>
+    <p class="text-sm text-gray-500">Copy any version below and paste into Experience.com or Google.</p>
 </div>
 
 <div class="space-y-4">
@@ -24,10 +24,10 @@
 </div>
 
 <div class="flex flex-col gap-3 mt-6">
-    {% if profile.zillow_url %}
-    <a href="{{ profile.zillow_url }}" target="_blank" rel="noopener"
+    {% if profile.experience_url %}
+    <a href="{{ profile.experience_url }}" target="_blank" rel="noopener"
         class="block w-full py-3 text-center text-lg font-semibold rounded-xl border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition">
-        Post on Zillow
+        Review on Experience.com
     </a>
     {% endif %}
     {% if profile.get_google_url() %}
