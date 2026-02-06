@@ -5,7 +5,8 @@ modules = ["python-3.11:v18-20230807-322e88b"]
 channel = "stable-23_11"
 
 [deployment]
-run = ["sh", "-c", "pip install -r requirements.txt && python3 main.py"]
+build = ["sh", "-c", "pip install -r requirements.txt"]
+run = ["sh", "-c", "python3 main.py"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
