@@ -1,165 +1,106 @@
-# Location Radius Map
+# One-Minute Review
 
-A privacy-focused Google Maps component that uses Google Sheets as a database. Users can search for an address and see nearby saved locations (within 1/4 mile) displayed as colored circles.
+A mobile-first web app that lets real-estate clients create polished Zillow/Google reviews by answering just 1-2 prompts. Agents pre-fill context via admin-generated tokenized links so clients spend under a minute.
 
-## Features
+## Quick Start (Replit)
 
-- Search any address to display an approximate 1/8 mile radius
-- Shows saved locations from Google Sheets within 1/4 mile of the searched address
-- Different colors: Blue for searched location, Yellow/Orange for saved locations
-- Privacy protection: Coordinates are slightly randomized
-- No markers placed at exact locations
-- Static HTML - no server required, host anywhere
-- Mobile responsive
+1. Click **Run** — the `.replit` file installs dependencies and starts the server.
+2. Open the app URL in your browser.
+3. Go to `/admin` and log in with the password set in your `.env` file (default: `admin123`).
+4. Set up your Agent Profile (name, brokerage, city, Zillow/Google URLs).
+5. Create a Review Request Link with client context (buy/sell, city, property nickname).
+6. Share the generated link with your client.
 
-## Setup
+## Manual Setup
 
-### Step 1: Create Your Google Sheet
-
-1. Go to [Google Sheets](https://sheets.google.com) and create a new spreadsheet
-2. Name it something like "Location Database"
-3. Set up these columns in Row 1:
-
-| A | B | C | D |
-|---|---|---|---|
-| address | lat | lng | label |
-
-4. Add your addresses starting from Row 2:
-
-| address | lat | lng | label |
-|---------|-----|-----|-------|
-| 123 Main St, Austin, TX | 30.2672 | -97.7431 | Location A |
-| 456 Oak Ave, Austin, TX | 30.2700 | -97.7400 | Location B |
-
-### Step 2: Get Your Google Sheet ID
-
-Your Sheet URL looks like:
-```
-https://docs.google.com/spreadsheets/d/1ABC123xyz789/edit
+```bash
+pip install -r requirements.txt
+python3 main.py
 ```
 
-The Sheet ID is the part between `/d/` and `/edit`:
+The server runs on `http://0.0.0.0:8080` by default.
+
+## Environment Variables
+
+Create a `.env` file:
+
 ```
-1ABC123xyz789
-```
-
-### Step 3: Get a Google API Key
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select an existing one
-3. Enable these APIs:
-   - **Maps JavaScript API**
-   - **Geocoding API**
-   - **Google Sheets API**
-4. Go to "Credentials" → "Create Credentials" → "API Key"
-5. (Recommended) Click "Edit API Key" and restrict it:
-   - Under "Application restrictions" → "HTTP referrers"
-   - Add your domain (e.g., `https://yourdomain.com/*`)
-   - Under "API restrictions" → Select the 3 APIs above
-
-### Step 4: Configure index.html
-
-Open `index.html` and update the CONFIG section (around line 175):
-
-```javascript
-const CONFIG = {
-    GOOGLE_SHEET_ID: 'YOUR_GOOGLE_SHEET_ID',  // From Step 2
-    GOOGLE_API_KEY: 'YOUR_GOOGLE_API_KEY',     // From Step 3
-    SHEET_NAME: 'Sheet1',                       // Your tab name
-    // ... rest of config
-};
+SECRET_KEY=your-random-secret-key
+ADMIN_PASSWORD=your-admin-password
+SALT=your-ip-hashing-salt
 ```
 
-Also update the Google Maps script at the bottom (line googlemaps):
+## How It Works
 
-```html
-<script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&callback=initMap">
-</script>
+### For the Agent (Admin)
+
+1. **Log in** at `/admin` with your `ADMIN_PASSWORD`.
+2. **Set up your profile**: name, brokerage, market city, brand color, logo URL.
+3. **Add platform links**: Paste your Zillow review page URL and/or Google review URL.
+4. **Create review request links**: Fill in transaction details (buy/sell, city, property nickname, close date) and generate a unique tokenized URL.
+5. **Share the link** via text or email using the SMS template provided.
+
+### For the Client
+
+1. **Open the link** (e.g., `yourapp.com/r/abcd1234`).
+2. **Answer one question**: "What stood out working with [Agent Name]?"
+3. **Optionally set a star rating** (1-5).
+4. **Click "Generate my review"** — three review variants appear instantly.
+5. **Copy** the preferred review and click the Zillow or Google button to post.
+
+### Without a Token (Fallback Mode)
+
+1. Visit the app root (`/`).
+2. Select "Buying" or "Selling".
+3. Enter a city or neighborhood.
+4. Answer the same standout question and generate.
+
+## Finding Your Google Place ID
+
+1. Go to [Google's Place ID Finder](https://developers.google.com/maps/documentation/places/web-service/place-id).
+2. Search for your business name.
+3. Copy the Place ID (starts with `ChIJ...`).
+4. Paste it in Admin under "Google Place ID" — the app builds the review URL automatically.
+
+Alternatively, paste a full Google "Write a Review" URL directly.
+
+## Creating and Sharing Tokenized Review Links
+
+1. In Admin, click "Create Review Request Link".
+2. Fill in: transaction type, city, neighborhood, property nickname, close month/year.
+3. Click "Create Link" — a unique URL like `/r/abcd1234` is generated.
+4. Copy the URL and share it. Use the SMS template:
+
+> "Hey! Tap this and write 1-2 sentences about what stood out. It'll draft your Zillow/Google review for you in seconds: [link]"
+
+## Copy/Paste Tips
+
+- **Zillow**: Click "Copy" on your preferred review variant, then click "Post on Zillow". Paste into the review text box on Zillow.
+- **Google**: Click "Copy", then click "Write a Google Review". Paste into the Google review form.
+
+## Privacy
+
+- Client IP addresses are hashed with a salt before logging.
+- Full review text is not stored with client identity.
+- The submission log records only metadata (city, transaction type, word count, rating, consent).
+- All generated pages include `noindex` meta tags.
+
+## File Structure
+
 ```
-
-### Step 5: Deploy to Bluehost
-
-1. Upload `index.html` to your Bluehost File Manager
-2. That's it! No server needed.
-
-## Adding Addresses
-
-Simply add new rows to your Google Sheet:
-
-| address | lat | lng | label |
-|---------|-----|-----|-------|
-| 789 Pine St, Austin, TX | 30.2650 | -97.7450 | New Location |
-
-The map will automatically pick up new addresses on the next search.
-
-### How to Get Coordinates
-
-1. Go to [Google Maps](https://maps.google.com)
-2. Search for the address
-3. Right-click on the exact location
-4. Click the coordinates to copy them (e.g., `30.2672, -97.7431`)
-5. First number = lat, second number = lng
-
-## Embedding
-
-```html
-<iframe
-    src="https://yourdomain.com/index.html?embed=true"
-    width="100%"
-    height="600"
-    style="border: none;">
-</iframe>
+main.py                 # Flask app and routes
+models.py               # SQLAlchemy database models
+forms.py                # Flask-WTF form definitions
+utils/review_generator.py  # Server-side review text generator
+templates/
+  base.html             # Base template with Tailwind CDN
+  fallback.html         # No-token landing page
+  review.html           # Client review form (main flow)
+  results.html          # Non-JS results fallback
+  admin_login.html      # Admin login page
+  admin.html            # Admin dashboard
+.replit                 # Replit run configuration
+replit.nix              # Nix dependencies for Replit
+requirements.txt        # Python dependencies
+.env                    # Environment variables (not committed)
 ```
-
-With pre-populated address:
-
-```html
-<iframe
-    src="https://yourdomain.com/index.html?embed=true&address=Austin%2C%20TX"
-    width="100%"
-    height="600"
-    style="border: none;">
-</iframe>
-```
-
-## Configuration Options
-
-Edit the `CONFIG` object in `index.html`:
-
-```javascript
-const CONFIG = {
-    GOOGLE_SHEET_ID: 'your-sheet-id',
-    GOOGLE_API_KEY: 'your-api-key',
-    SHEET_NAME: 'Sheet1',
-
-    RADIUS_METERS: 201.168,         // Display circle size (1/8 mile)
-    QUARTER_MILE_METERS: 402.336,   // Search radius for nearby locations
-    PRIVACY_OFFSET_METERS: 50,      // Random offset for privacy
-
-    // Circle colors
-    SEARCHED_FILL_COLOR: '#4285f4',  // Blue for searched
-    SAVED_FILL_COLOR: '#f9ab00',     // Yellow for saved
-};
-```
-
-## Troubleshooting
-
-**"Failed to fetch from Google Sheets"**
-- Make sure your API key has Sheets API enabled
-- Check that the Sheet ID is correct
-- Verify the sheet name matches exactly
-
-**Addresses not showing**
-- Check that lat/lng columns have valid numbers
-- Make sure there are no empty rows between data
-- Column headers must be exactly: `address`, `lat`, `lng`, `label`
-
-**Map not loading**
-- Verify Maps JavaScript API is enabled
-- Check browser console for errors
-- Make sure API key is correct in both CONFIG and script tag
-
-## License
-
-MIT License

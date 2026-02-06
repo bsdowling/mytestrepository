@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>{% block title %}One-Minute Review{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '{{ brand_color | default("#2563eb") }}',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .toast {
+            animation: fadeInOut 2s ease-in-out;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+        /* Star rating */
+        .star-input { cursor: pointer; font-size: 2rem; color: #d1d5db; transition: color 0.15s; }
+        .star-input.active { color: #f59e0b; }
+        .star-input:hover, .star-input:hover ~ .star-input { color: #fbbf24; }
+        .stars-container:hover .star-input { color: #d1d5db; }
+        .stars-container:hover .star-input:hover,
+        .stars-container .star-input:hover ~ .star-input { color: #fbbf24; }
+        /* Actually we need left-to-right hover, reverse order trick */
+        .stars-container { display: flex; flex-direction: row; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-800">
+    <div class="max-w-lg mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2"></div>
+
+    <script>
+        function showToast(msg) {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = 'toast bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg text-sm';
+            el.textContent = msg;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 2200);
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text).then(() => showToast('Copied!')).catch(() => {
+                // Fallback
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                showToast('Copied!');
+            });
+        }
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
